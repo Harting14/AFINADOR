@@ -1,0 +1,67 @@
+char flat = 0;
+char Filtro = 0;
+void main(void)
+{
+  /* Write your local variable definition here */
+	char Data[3] = {0 ,0 ,0};
+	char NoFilter = 0;
+	char ADC = 0;
+	char m = 28;
+	char Datos[29] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+	signed char Coef[29] = {0,1,0,-1,0,3,0,-6,0,12,0,-24,0,80,127,80,0,-24,0,12,0,-6,0,3,0,-1,0,1,0};
+	char error = 0;
+	char A = 0;
+	char i = 0;
+	char j = 0;
+	unsigned int Filtrado = 0b1111110000001111;
+  /*** Processor Expert internal initialization. DON'T REMOVE THIS CODE!!! ***/
+  PE_low_level_init();
+  /*** End of Processor Expert internal initialization.                    ***/
+  /* Write your code here */
+  
+  while(1){
+  	  if(flat == 1){
+  		 flat = 0; 											//variable para tiempo de muestreo y envio
+  		 if(Filtro == 0){									//variable para encendido o apagado del filtro
+  		 AD1_Measure(1);
+  		 do{
+  			        error = 0;
+  		 		    error = AD1_GetChanValue8(0,&ADC);	
+  		 			 }while(error!=ERR_OK);
+  		 Datos[j] = ADC;
+  		 for (i=0;i<m+1;i++){								//filtro con esquema de buffer circular para mayor eficiencia
+  			 Filtrado = Datos[j] * Coef[i] + Filtrado;
+  			 j++;
+  			 if (j > m)
+  				 j = 0;
+  		 }
+  		 j++;
+  		  	 if (j > m)
+  		  	 j = 0;
+  		 Data[0] = Filtrado >> 10;							//codificacion en 3 bytes
+  		 Data[1] = ((Filtrado >> 4)& 0b00111111) + 128;
+  		 Data[2] = (Filtrado & 0b00001111) + 128;		 
+  		 do{												//enviado del paquete ya codificado
+ 		  	 	error = 0;
+  		 	    error = AS1_SendBlock(Data,3,&A);
+	 		 }while(error!=ERR_OK);
+  		 Filtrado = 0;
+  		 Bit1_NegVal(); 									// bit de checkeo del tiempo del ciclo
+  		 }else{												// filtro apagado
+  			  AD1_Measure(1);
+  			  		do{
+  			  			        error = 0;
+  			  		 		    error = AD1_GetChanValue8(0,&ADC);	 1
+  			  		 			 }while(error!=ERR_OK);
+  			  		NoFilter = ADC;									//codificacion sin filtro en el mismo esquema
+  			  		Data[0] = 64;
+  			  		Data[1] = (NoFilter >>4) + 128;
+  			  		Data[2] = (NoFilter & 0b00001111) + 128;
+  			  		do{												//enviado del paquete ya codificado
+  			  	 		  	 	error = 0;
+  			  	  		 	    error = AS1_SendBlock(Data,3,&A);
+  			  		 		 }while(error!=ERR_OK);
+  			 
+  		 }
+  		 }
+    }
